@@ -4,13 +4,13 @@ JSON Schema (draft 2020-12) definitions for validating Conductor Data Pipeline Y
 
 ## Schemas
 
-| File | Validates | SPEC.md Section |
-|---|---|---|
-| `pipeline.schema.json` | Pipeline definition YAML | 3.1 |
-| `contract.schema.json` | Data contract YAML | 3.3 |
-| `masking-policy.schema.json` | Masking policy YAML | 3.2 |
-| `lineage-event.schema.json` | Lineage event payloads | 7.1 |
-| `conductor-state-data.schema.json` | `data_pipelines` extension to conductor-state.json | 8.3 |
+| File | Validates |
+|---|---|
+| `pipeline.schema.json` | Pipeline definition YAML (`kind: Pipeline`) |
+| `contract.schema.json` | Data contract YAML (`kind: DataContract`) |
+| `masking-policy.schema.json` | Masking policy YAML (`kind: MaskingPolicy`) |
+| `lineage-event.schema.json` | Lineage event payloads (PROV-AGENT extension) |
+| `conductor-state-data.schema.json` | `data_pipelines` extension to conductor-state.json |
 
 ## Validation with Python
 

@@ -17,6 +17,18 @@ appears, across structured and free-text columns).
 - **Lineage** — emits lineage events for every transformation.
 - **Human approval** — sensitive steps require a signed approval decision.
 
+## Documentation
+
+Full documentation lives in [`docs/`](docs/): [overview](docs/OVERVIEW.md),
+[install](docs/INSTALL.md), [how-to-use](docs/HOW-TO-USE.md),
+[administrator guide](docs/ADMINISTRATOR.md), [SBOM](docs/SBOM.md), and the
+[security scan report](docs/scan/scan-report.md) (0 critical / 0 high).
+
+## Media
+
+A generated system-overview briefing is in [`media/`](media/)
+([briefing](media/system-overview.md)).
+
 ## Schemas
 
 The pipeline, contract, masking-policy, lineage-event, and state schemas live in

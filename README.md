@@ -25,7 +25,7 @@ The pipeline, contract, masking-policy, lineage-event, and state schemas live in
 ## Development
 
 ```bash
-pip install -r requirements.txt   # or: npm install, per the pipeline runtime
+pip install -r requirements.txt
 python -m pytest
 ```
 

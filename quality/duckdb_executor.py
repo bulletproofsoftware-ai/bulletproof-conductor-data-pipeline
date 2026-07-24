@@ -36,7 +36,7 @@ class DuckDBExecutor:
         self._memory_limit = memory_limit
         # SET is a DuckDB config PRAGMA that does not accept bind parameters;
         # memory_limit is validated against _MEMORY_LIMIT_RE above.
-        self._conn.execute(f"SET memory_limit = '{memory_limit}'")  # nosemgrep: configs.sql-string-concatenation-python  # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
+        self._conn.execute(f"SET memory_limit = '{memory_limit}'")  # nosemgrep: configs.sql-string-concatenation-python,python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
         self._tables: List[str] = []
 
     @property

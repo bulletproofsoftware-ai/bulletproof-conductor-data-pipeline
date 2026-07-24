@@ -34,10 +34,9 @@ class DuckDBExecutor:
             raise ValueError(f"Invalid memory_limit: '{memory_limit}'")
         self._conn = duckdb.connect(database=":memory:")
         self._memory_limit = memory_limit
-        # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
         # SET is a DuckDB config PRAGMA that does not accept bind parameters;
         # memory_limit is validated against _MEMORY_LIMIT_RE above.
-        self._conn.execute(f"SET memory_limit = '{memory_limit}'")  # nosemgrep: configs.sql-string-concatenation-python
+        self._conn.execute(f"SET memory_limit = '{memory_limit}'")  # nosemgrep: configs.sql-string-concatenation-python  # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
         self._tables: List[str] = []
 
     @property
@@ -98,9 +97,8 @@ class DuckDBExecutor:
 
         # `name` is a validated SQL identifier and column names come from dict
         # keys (schema), neither of which can be passed as bind parameters in DDL.
-        # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
-        create_sql = f"CREATE TABLE {name} ({', '.join(type_map)})"
-        self._conn.execute(create_sql)
+        create_sql = f"CREATE TABLE {name} ({', '.join(type_map)})"  # nosemgrep: configs.sql-string-concatenation-python
+        self._conn.execute(create_sql)  # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
 
         # Insert rows using parameterized queries: identifiers are interpolated
         # into the statement text but every row VALUE is bound via ? placeholders.

@@ -20,7 +20,7 @@ appears, across structured and free-text columns).
 ## Schemas
 
 The pipeline, contract, masking-policy, lineage-event, and state schemas live in
-[`schemas/`](schemas/). See [`SPEC.md`](SPEC.md) for the full design.
+[`schemas/`](schemas/).
 
 ## Development
 

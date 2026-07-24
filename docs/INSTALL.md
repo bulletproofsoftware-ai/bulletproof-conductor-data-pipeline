@@ -54,19 +54,30 @@ python -m pytest
 
 > **Note on the test suite.** Most of the suite runs against the pure-Python packages
 > with in-memory stubs (an in-memory Qdrant client, a dict-backed Postgres writer,
-> in-memory DuckDB). A subset of tests (`test_pii_validator.py`,
-> `test_post_data_pipeline_gate.py`, `test_human_approval.py`, `test_key_rotation.py`)
-> imports `masking_engine.app.ner.presidio_client`; the masking-engine FastAPI
-> application source is built inside the container rather than vendored into this
-> repository, so those imports are unavailable when running the tests without the
-> container app present. Run the remainder with, for example:
+> in-memory DuckDB). The PII-related tests (`test_pii_validator.py`,
+> `test_post_data_pipeline_gate.py`) — and, transitively, everything that imports the
+> `gates` package such as `test_human_approval.py` and `test_key_rotation.py` — depend on
+> `masking_engine.app.ner.presidio_client`. That module ships the **client contract** the
+> pipeline codes against (`BasePresidioClient`, `RecognizedEntity`, and a dependency-free
+> `MockPresidioClient` used by the tests); it imports and runs with the Python standard
+> library alone, so these tests run out of the box with no extra services:
 >
 > ```bash
-> python -m pytest --ignore=tests/test_pii_validator.py \
->                  --ignore=tests/test_post_data_pipeline_gate.py \
->                  --ignore=tests/test_human_approval.py \
->                  --ignore=tests/test_key_rotation.py
+> python -m pytest tests/test_pii_validator.py \
+>                  tests/test_post_data_pipeline_gate.py \
+>                  tests/test_human_approval.py \
+>                  tests/test_key_rotation.py
 > ```
+>
+> The **concrete** Presidio analyzer implementation of `BasePresidioClient` (a real
+> `AnalyzerEngine` wrapper backed by spaCy models) is provided by the masking-engine
+> service at runtime and built into its container image — it is intentionally not vendored
+> here, so the gates import and test cleanly without the heavy Presidio + model
+> dependencies.
+>
+> Other tests still require optional back-end drivers that are not installed by the base
+> requirements (`duckdb`, `qdrant-client`, `opentelemetry-*`); install those extras, or
+> skip the corresponding modules, to run the full suite locally.
 >
 > CI (`.github/workflows/ci.yml`) compiles all Python as its hard gate and runs the test
 > suite non-blockingly (services required by some tests are not present in CI).
@@ -96,8 +107,13 @@ docker compose -f docker-compose.data-pipeline.yml up -d
 
 The `masking-engine` service is **built from** [`./masking_engine`](../masking_engine)
 using its [`Dockerfile`](../masking_engine/Dockerfile). That image runs the FastAPI
-masking application; its application source is supplied to the build under
-`masking_engine/app/` and is not part of this published tree.
+masking application. The published tree vendors only the **client contract** the pipeline
+codes against — [`masking_engine/app/ner/presidio_client.py`](../masking_engine/app/ner/presidio_client.py)
+(`BasePresidioClient` / `RecognizedEntity`) — so `gates.pii_validator` imports cleanly. The
+remainder of the FastAPI application source (the `app.main` entrypoint referenced by the
+Dockerfile `CMD`, the concrete Presidio analyzer/anonymizer wiring, tokenization/FPE/redaction
+strategies, and Vault key resolution) is supplied to the image build separately and is not
+part of this published tree.
 
 ### Health checks
 

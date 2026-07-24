@@ -1,0 +1,88 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://conductor-data.example.com/schemas/contract.schema.json",
+  "title": "Conductor Data Contract",
+  "description": "JSON Schema for data contract YAML (apiVersion: conductor-data/v1, kind: DataContract)",
+  "type": "object",
+  "required": ["apiVersion", "kind", "metadata", "columns", "governance", "quality_signoff"],
+  "additionalProperties": false,
+  "properties": {
+    "apiVersion": {
+      "const": "conductor-data/v1"
+    },
+    "kind": {
+      "const": "DataContract"
+    },
+    "metadata": {
+      "type": "object",
+      "required": ["pipeline_ref", "steward", "reviewed_at", "classification_version"],
+      "additionalProperties": false,
+      "properties": {
+        "pipeline_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "steward": {
+          "type": "string",
+          "minLength": 1
+        },
+        "reviewed_at": {
+          "type": "string",
+          "minLength": 1
+        },
+        "classification_version": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "columns": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/columnDefinition"
+      },
+      "minProperties": 1
+    },
+    "governance": {
+      "type": "object",
+      "required": ["human_review_required", "retention_days", "audit_frequency"],
+      "additionalProperties": false,
+      "properties": {
+        "human_review_required": {
+          "type": "boolean"
+        },
+        "retention_days": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "audit_frequency": {
+          "type": "string",
+          "enum": ["daily", "weekly", "monthly"]
+        }
+      }
+    },
+    "quality_signoff": {
+      "type": "boolean"
+    }
+  },
+  "$defs": {
+    "columnDefinition": {
+      "type": "object",
+      "required": ["classification", "pii"],
+      "additionalProperties": false,
+      "properties": {
+        "classification": {
+          "type": "string",
+          "enum": ["public", "internal", "confidential", "restricted"]
+        },
+        "pii": {
+          "type": "boolean"
+        },
+        "pii_type": {
+          "type": "string",
+          "enum": ["PERSON", "EMAIL", "PHONE", "SSN", "CREDIT_CARD", "ADDRESS", "DATE_OF_BIRTH"]
+        }
+      }
+    }
+  }
+}

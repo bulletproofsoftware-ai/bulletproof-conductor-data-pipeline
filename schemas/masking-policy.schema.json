@@ -1,0 +1,154 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://conductor-data.example.com/schemas/masking-policy.schema.json",
+  "title": "Conductor Masking Policy",
+  "description": "JSON Schema for masking policy YAML (apiVersion: conductor-data/v1, kind: MaskingPolicy)",
+  "type": "object",
+  "required": ["apiVersion", "kind", "metadata"],
+  "additionalProperties": false,
+  "properties": {
+    "apiVersion": {
+      "const": "conductor-data/v1"
+    },
+    "kind": {
+      "const": "MaskingPolicy"
+    },
+    "metadata": {
+      "type": "object",
+      "required": ["name", "tier", "description"],
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "tier": {
+          "type": "string",
+          "minLength": 1
+        },
+        "description": {
+          "type": "string"
+        }
+      }
+    },
+    "defaults": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "strategy": {
+          "$ref": "#/$defs/strategyEnum"
+        },
+        "deterministic": {
+          "type": "boolean"
+        },
+        "seed": {
+          "type": "string"
+        }
+      }
+    },
+    "rules": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/rule"
+      }
+    },
+    "unstructured_rules": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "ner_model": {
+          "type": "string"
+        },
+        "entities": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["PERSON", "EMAIL", "PHONE", "SSN", "CREDIT_CARD", "ADDRESS", "DATE_OF_BIRTH"]
+          }
+        },
+        "replacement": {
+          "$ref": "#/$defs/strategyEnum"
+        },
+        "thresholds": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          }
+        }
+      }
+    },
+    "referential_integrity": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "consistency_scope": {
+          "type": "string",
+          "enum": ["pipeline", "table"]
+        }
+      }
+    }
+  },
+  "$defs": {
+    "strategyEnum": {
+      "type": "string",
+      "enum": ["tokenize", "format_preserve_encrypt", "redact", "synthetic", "passthrough"]
+    },
+    "classificationEnum": {
+      "type": "string",
+      "enum": ["public", "internal", "confidential", "restricted"]
+    },
+    "fieldRule": {
+      "type": "object",
+      "required": ["pattern", "strategy"],
+      "additionalProperties": false,
+      "properties": {
+        "pattern": {
+          "type": "string",
+          "minLength": 1
+        },
+        "strategy": {
+          "$ref": "#/$defs/strategyEnum"
+        },
+        "format": {
+          "type": "string"
+        },
+        "prefix": {
+          "type": "string"
+        }
+      }
+    },
+    "rule": {
+      "type": "object",
+      "required": ["classification"],
+      "additionalProperties": false,
+      "properties": {
+        "classification": {
+          "$ref": "#/$defs/classificationEnum"
+        },
+        "action": {
+          "$ref": "#/$defs/strategyEnum"
+        },
+        "strategy": {
+          "$ref": "#/$defs/strategyEnum"
+        },
+        "deterministic": {
+          "type": "boolean"
+        },
+        "fields": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/fieldRule"
+          }
+        }
+      }
+    }
+  }
+}

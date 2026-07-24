@@ -1,0 +1,67 @@
+# Workflow Phases: Data Pipeline Conductor Phases
+# Spec reference: SPEC.md Section 8.1
+# These 3 phases insert after architecture, before implementation.
+# Conditional on STANDARD+ tier tasks requiring data.
+
+apiVersion: conductor-agent/v1
+kind: WorkflowPhases
+
+activation:
+  condition: data_required
+  minimum_tier: STANDARD
+  description: "Activated for STANDARD+ tier tasks that require data extraction or transformation"
+
+phases:
+  - id: data-pipeline-design
+    name: "Data Pipeline Design"
+    agent: conductor-data-engineer
+    gate: null
+    produces:
+      - pipeline-definition
+    description: "Engineer designs pipeline definition from data requirements"
+    order: 1
+
+  - id: data-governance-review
+    name: "Data Governance Review"
+    agent: conductor-data-steward
+    gate:
+      name: POST-DATA-PIPELINE
+      mode: BLOCKING
+    human_gate:
+      enabled: true
+      condition: "confidential_or_higher"
+      description: "Human approval required when pipeline touches Confidential+ data"
+    produces:
+      - data-contract
+      - classification-audit
+    description: "Steward classifies data, reviews masking, validates governance"
+    order: 2
+
+  - id: data-pipeline-execute
+    name: "Data Pipeline Execute"
+    agent: conductor-data-engineer
+    gate:
+      name: POST-DATA-PIPELINE
+      mode: BLOCKING
+    produces:
+      - extraction-report
+    description: "Engineer executes approved pipeline and validates results"
+    order: 3
+
+ordering:
+  after: architecture
+  before: implementation
+  sequence:
+    - data-pipeline-design
+    - data-governance-review
+    - data-pipeline-execute
+
+tier_definitions:
+  BASIC:
+    data_phases_enabled: false
+  STANDARD:
+    data_phases_enabled: true
+  COMPLEX:
+    data_phases_enabled: true
+  ENTERPRISE:
+    data_phases_enabled: true

@@ -1,0 +1,174 @@
+# Classification Patterns: Default PII pattern-matching for data-steward
+# Spec reference: TODO-010 spec, SPEC.md Section 4.2
+# These patterns are SUGGESTIONS -- steward makes final classification decision.
+# Override requires documented reasoning for audit trail.
+
+apiVersion: conductor-agent/v1
+kind: ClassificationPatterns
+
+patterns:
+  # PII patterns -- Confidential tier
+  - pattern: "*.email"
+    classification: confidential
+    pii: true
+    pii_type: EMAIL
+    description: "Email address columns"
+
+  - pattern: "*.mail"
+    classification: confidential
+    pii: true
+    pii_type: EMAIL
+    description: "Mail/email address columns (alternate naming)"
+
+  - pattern: "*.phone"
+    classification: confidential
+    pii: true
+    pii_type: PHONE
+    description: "Phone number columns"
+
+  - pattern: "*.mobile"
+    classification: confidential
+    pii: true
+    pii_type: PHONE
+    description: "Mobile phone number columns"
+
+  - pattern: "*.tel"
+    classification: confidential
+    pii: true
+    pii_type: PHONE
+    description: "Telephone number columns"
+
+  - pattern: "*.name"
+    classification: confidential
+    pii: true
+    pii_type: PERSON
+    description: "Person name columns"
+
+  - pattern: "*.first_name"
+    classification: confidential
+    pii: true
+    pii_type: PERSON
+    description: "First/given name columns"
+
+  - pattern: "*.last_name"
+    classification: confidential
+    pii: true
+    pii_type: PERSON
+    description: "Last/family name columns"
+
+  - pattern: "*.address*"
+    classification: confidential
+    pii: true
+    pii_type: ADDRESS
+    description: "Address columns (street, mailing, etc.)"
+
+  - pattern: "*.street*"
+    classification: confidential
+    pii: true
+    pii_type: ADDRESS
+    description: "Street address columns"
+
+  - pattern: "*.city"
+    classification: confidential
+    pii: true
+    pii_type: ADDRESS
+    description: "City columns"
+
+  - pattern: "*.zip*"
+    classification: confidential
+    pii: true
+    pii_type: ADDRESS
+    description: "Zip/postal code columns"
+
+  - pattern: "*.dob"
+    classification: confidential
+    pii: true
+    pii_type: DATE_OF_BIRTH
+    description: "Date of birth columns"
+
+  - pattern: "*.birth*"
+    classification: confidential
+    pii: true
+    pii_type: DATE_OF_BIRTH
+    description: "Birth date columns (alternate naming)"
+
+  # PII patterns -- Restricted tier (highest sensitivity)
+  - pattern: "*.ssn"
+    classification: restricted
+    pii: true
+    pii_type: SSN
+    description: "Social Security Number columns"
+
+  - pattern: "*.social_security*"
+    classification: restricted
+    pii: true
+    pii_type: SSN
+    description: "Social Security Number columns (full name)"
+
+  - pattern: "*.credit_card*"
+    classification: restricted
+    pii: true
+    pii_type: CREDIT_CARD
+    description: "Credit card number columns"
+
+  - pattern: "*.card_number*"
+    classification: restricted
+    pii: true
+    pii_type: CREDIT_CARD
+    description: "Card number columns (generic)"
+
+  # Non-PII patterns -- Internal tier
+  - pattern: "*.id"
+    classification: internal
+    pii: false
+    description: "Primary key / identifier columns"
+
+  - pattern: "*.key"
+    classification: internal
+    pii: false
+    description: "Key columns (surrogate or natural)"
+
+  - pattern: "*_id"
+    classification: internal
+    pii: false
+    description: "Foreign key columns (suffix pattern)"
+
+  - pattern: "*.created_at"
+    classification: internal
+    pii: false
+    description: "Creation timestamp columns"
+
+  - pattern: "*.updated_at"
+    classification: internal
+    pii: false
+    description: "Update timestamp columns"
+
+  - pattern: "*.timestamp"
+    classification: internal
+    pii: false
+    description: "Generic timestamp columns"
+
+  # Non-PII patterns -- Public tier
+  - pattern: "*.status"
+    classification: public
+    pii: false
+    description: "Status enum columns"
+
+  - pattern: "*.type"
+    classification: public
+    pii: false
+    description: "Type/category columns"
+
+  - pattern: "*.category"
+    classification: public
+    pii: false
+    description: "Category columns"
+
+metadata:
+  version: 1
+  note: "Patterns are initial suggestions only. The conductor-data-steward makes final classification decisions and must provide reasoning when overriding a pattern suggestion."
+  classification_tiers:
+    - public
+    - internal
+    - confidential
+    - restricted

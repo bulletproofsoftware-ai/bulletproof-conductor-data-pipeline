@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://conductor-data.example.com/schemas/conductor-state-data.schema.json",
+  "title": "Conductor State Data Pipelines Extension",
+  "description": "JSON Schema for the data_pipelines extension to conductor-state.json",
+  "type": "object",
+  "required": ["data_pipelines"],
+  "additionalProperties": true,
+  "properties": {
+    "data_pipelines": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "definition", "contract", "status", "last_run", "targets_ready", "quality_gate"],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "definition": {
+            "type": "string",
+            "minLength": 1
+          },
+          "contract": {
+            "type": "string",
+            "minLength": 1
+          },
+          "status": {
+            "type": "string",
+            "enum": ["pending", "designing", "reviewing", "approved", "executing", "executed", "failed"]
+          },
+          "last_run": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "targets_ready": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "quality_gate": {
+            "type": "string",
+            "enum": ["pending", "passed", "failed"]
+          }
+        }
+      }
+    }
+  }
+}

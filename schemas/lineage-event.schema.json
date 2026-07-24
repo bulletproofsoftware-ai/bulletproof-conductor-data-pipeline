@@ -1,0 +1,140 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://conductor-data.example.com/schemas/lineage-event.schema.json",
+  "title": "Conductor Data Pipeline Lineage Event",
+  "description": "JSON Schema for lineage events emitted by data pipeline operations (PROV-AGENT extension)",
+  "type": "object",
+  "required": ["event"],
+  "additionalProperties": false,
+  "properties": {
+    "event": {
+      "type": "object",
+      "required": [
+        "gov_agent_id",
+        "gov_session_id",
+        "gov_classification",
+        "gov_timestamp",
+        "pipeline_id",
+        "operation",
+        "source",
+        "target",
+        "content_hash"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "gov_agent_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "gov_session_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "gov_classification": {
+          "type": "string",
+          "enum": ["public", "internal", "confidential", "restricted"]
+        },
+        "gov_timestamp": {
+          "type": "string",
+          "minLength": 1
+        },
+        "pipeline_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "operation": {
+          "type": "string",
+          "enum": ["extract", "transform", "mask", "load"]
+        },
+        "source": {
+          "type": "object",
+          "required": ["connector", "table", "columns", "row_count"],
+          "additionalProperties": false,
+          "properties": {
+            "connector": {
+              "type": "string",
+              "minLength": 1
+            },
+            "table": {
+              "type": "string",
+              "minLength": 1
+            },
+            "columns": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "row_count": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "filter_applied": {
+              "type": "string"
+            }
+          }
+        },
+        "target": {
+          "type": "object",
+          "required": ["connector", "tier", "table", "masking_applied"],
+          "additionalProperties": false,
+          "properties": {
+            "connector": {
+              "type": "string",
+              "minLength": 1
+            },
+            "tier": {
+              "type": "string",
+              "minLength": 1
+            },
+            "table": {
+              "type": "string",
+              "minLength": 1
+            },
+            "masking_applied": {
+              "type": "boolean"
+            }
+          }
+        },
+        "transformation": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "type": "string",
+              "minLength": 1
+            },
+            "strategy_map": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "string"
+              }
+            },
+            "referential_integrity": {
+              "type": "string",
+              "enum": ["verified", "failed", "not_applicable"]
+            }
+          }
+        },
+        "quality": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "assertions_run": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "assertions_passed": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        },
+        "content_hash": {
+          "type": "string",
+          "pattern": "^sha256:[a-f0-9]+$"
+        }
+      }
+    }
+  }
+}

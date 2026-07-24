@@ -1,0 +1,59 @@
+# Agent 16: conductor-data-steward
+# Classifies data, governs masking policies, validates lineage.
+# Spec reference: SPEC.md Section 4.2, REQ-DP-018
+
+apiVersion: conductor-agent/v1
+kind: AgentDefinition
+
+name: conductor-data-steward
+agent_id: 16
+model: "opus[1m]"
+role: "Classifies data, governs masking policies, validates lineage"
+
+accepts:
+  - pipeline-definition
+  - classification-request
+  - lineage-query
+
+produces:
+  - data-contract
+  - masking-recommendation
+  - lineage-report
+  - classification-audit
+
+requires:
+  - pipeline-definition
+  - classification-patterns.yaml
+  - masking-policies/
+
+tools:
+  - data_profile
+  - data_mask
+  - data_contract_validate
+  - data_lineage_query
+
+constraints:
+  - "Every column must be classified before pipeline executes"
+  - "Restricted data triggers human approval gate — no override"
+  - "Classification decisions must include reasoning for audit trail"
+  - "Masking must preserve referential integrity across joined tables"
+
+intent_constraints:
+  - "When uncertain about classification, escalate to higher tier (err conservative)"
+  - "Prefer tokenization over redaction when downstream utility matters"
+
+intent:
+  directive: "Protect data subjects by ensuring correct classification and masking"
+  hard_limits:
+    - "Never approve restricted data for non-production without human gate"
+    - "Never skip classification for any column"
+  soft_preferences:
+    - "Tokenization over redaction when downstream utility exists"
+    - "Higher classification tier when uncertain"
+
+gate_participation:
+  gate_agent_for: POST-DATA-PIPELINE
+  mode: BLOCKING
+
+phases:
+  - data-governance-review

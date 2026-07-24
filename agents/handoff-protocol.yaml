@@ -1,0 +1,111 @@
+# Handoff Protocol: Data Pipeline Agent Routes
+# Spec reference: SPEC.md Section 4.3, REQ-DP-029
+
+apiVersion: conductor-agent/v1
+kind: HandoffProtocol
+
+routes:
+  - id: route-001
+    source: conductor-architect
+    target: conductor-data-engineer
+    artifact_type: data-requirements
+    description: "Architect produces data requirements from BRD for engineer to design pipeline"
+    direction: forward
+
+  - id: route-002
+    source: conductor-data-engineer
+    target: conductor-data-steward
+    artifact_type: pipeline-definition
+    description: "Engineer sends pipeline definition to steward for classification and governance review"
+    direction: forward
+
+  - id: route-003
+    source: conductor-data-steward
+    target: conductor-data-engineer
+    artifact_type: data-contract
+    description: "Steward returns signed data contract to engineer for pipeline execution"
+    direction: return
+
+  - id: route-004
+    source: conductor-data-engineer
+    target: conductor-builder
+    artifact_type: extraction-report
+    description: "Engineer delivers extraction report to builder for data consumption"
+    direction: forward
+
+  - id: route-005
+    source: conductor-builder
+    target: null
+    artifact_type: null
+    tool_call: data_extract
+    description: "Builder calls data_extract MCP tool directly for simple queries"
+    direction: direct
+
+artifact_type_registry:
+  - name: pipeline-definition
+    producer: conductor-data-engineer
+    consumers:
+      - conductor-data-steward
+      - conductor-architect
+      - conductor-ciso
+    schema_ref: pipeline.schema.json
+    description: "Declarative YAML defining extraction, transform, and load operations"
+
+  - name: data-contract
+    producer: conductor-data-steward
+    consumers:
+      - conductor-data-engineer
+      - conductor-ciso
+      - conductor-qa
+      - conductor-compliance
+    schema_ref: contract.schema.json
+    description: "Per-column classification, governance rules, and quality signoff"
+
+  - name: schema-profile
+    producer: conductor-data-engineer
+    consumers:
+      - conductor-data-steward
+      - conductor-architect
+    schema_ref: null
+    description: "Source schema analysis with column types, cardinality, and null rates"
+
+  - name: extraction-report
+    producer: conductor-data-engineer
+    consumers:
+      - conductor-builder
+      - conductor-qa
+    schema_ref: null
+    description: "Report of extraction results including row counts and quality assertions"
+
+  - name: masking-recommendation
+    producer: conductor-data-steward
+    consumers:
+      - conductor-data-engineer
+      - conductor-ciso
+    schema_ref: null
+    description: "Recommended masking strategy per column per target tier"
+
+  - name: lineage-report
+    producer: conductor-data-steward
+    consumers:
+      - conductor-compliance
+      - conductor-ciso
+      - conductor-qa
+    schema_ref: null
+    description: "Provenance trace and lineage graph for a pipeline execution"
+
+  - name: classification-audit
+    producer: conductor-data-steward
+    consumers:
+      - conductor-compliance
+      - conductor-ciso
+    schema_ref: null
+    description: "Audit trail of classification decisions with reasoning"
+
+validation_rules:
+  - rule: source_produces_artifact
+    description: "Source agent must list the artifact type in its 'produces' list"
+  - rule: target_accepts_artifact
+    description: "Target agent must list the artifact type in its 'accepts' list"
+  - rule: no_circular_dependencies
+    description: "Handoff chain must not form cycles (DAG enforcement)"

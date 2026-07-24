@@ -1,0 +1,43 @@
+# Existing Agent Data Awareness Updates
+# Spec reference: SPEC.md Section 8.4, REQ-DP-030
+# No code changes to existing agents -- they inspect new artifact types
+# through existing handoff patterns.
+
+apiVersion: conductor-agent/v1
+kind: ExistingAgentUpdates
+
+updates:
+  - agent: conductor-ciso
+    description: "Reviews data contracts during security review"
+    new_readable_artifacts:
+      - data-contract
+      - lineage-report
+      - classification-audit
+      - masking-recommendation
+    use_case: "Validate classification decisions align with security policy, review masking strategies for Confidential/Restricted data"
+
+  - agent: conductor-qa
+    description: "Verifies test data exists and is correctly masked"
+    new_readable_artifacts:
+      - data-contract
+      - extraction-report
+      - lineage-report
+    use_case: "Confirm test environments have properly masked data, verify extraction completeness for test scenarios"
+
+  - agent: conductor-compliance
+    description: "Generates data processing records from lineage events"
+    new_readable_artifacts:
+      - data-contract
+      - lineage-report
+      - classification-audit
+    use_case: "Auto-generate GDPR Article 30 processing records, audit classification decisions, track data retention"
+
+  - agent: conductor-architect
+    description: "References pipeline definitions in TODO specs"
+    new_readable_artifacts:
+      - pipeline-definition
+      - data-contract
+      - schema-profile
+    use_case: "Design system architecture aware of data pipeline topology, reference pipeline definitions in TODO implementation specs"
+
+note: "These updates are declarative -- existing agents use the same MCP tools (data_contract_validate, data_lineage_query) to read new artifact types. No agent code modifications required."

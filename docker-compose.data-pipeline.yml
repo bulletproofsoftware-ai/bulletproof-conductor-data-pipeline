@@ -1,0 +1,140 @@
+# Conductor Data Pipeline — Docker Compose
+#
+# Brings up all 6 containers for the data pipeline subsystem.
+# Total RAM target: ~5.3GB (under 6GB limit per REQ-DP-028).
+#
+# Usage:
+#   cp .env.example .env   # fill in real values
+#   docker compose -f docker-compose.data-pipeline.yml up -d
+#
+# No external ports are exposed. All communication is internal
+# via the conductor-data-pipeline network. The MCP tool layer
+# is the only interface for agents.
+
+services:
+  # --------------------------------------------------------------------------
+  # Airbyte internal state database (PostgreSQL 15)
+  # --------------------------------------------------------------------------
+  airbyte-db:
+    image: postgres:15
+    mem_limit: 256m
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: airbyte
+      POSTGRES_PASSWORD: "${AIRBYTE_DB_PASSWORD}"
+      POSTGRES_DB: airbyte
+    volumes:
+      - airbyte-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U airbyte"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # --------------------------------------------------------------------------
+  # Airbyte server — connector orchestration
+  # --------------------------------------------------------------------------
+  airbyte-server:
+    image: airbyte/server:latest
+    mem_limit: 2g
+    restart: unless-stopped
+    depends_on:
+      airbyte-db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: "postgresql://airbyte:${AIRBYTE_DB_PASSWORD}@airbyte-db:5432/airbyte"
+      AIRBYTE_VERSION: latest
+    expose:
+      - "8001"
+
+  # --------------------------------------------------------------------------
+  # Airbyte worker — connector execution (spawns ephemeral containers)
+  # --------------------------------------------------------------------------
+  airbyte-worker:
+    image: airbyte/worker:latest
+    mem_limit: 1g
+    restart: unless-stopped
+    depends_on:
+      airbyte-server:
+        condition: service_started
+    environment:
+      AIRBYTE_VERSION: latest
+      INTERNAL_API_HOST: "airbyte-server:8001"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+
+  # --------------------------------------------------------------------------
+  # Masking engine — custom FastAPI service (REQ-DP-003, Section 6)
+  # --------------------------------------------------------------------------
+  masking-engine:
+    build: ./masking_engine
+    mem_limit: 512m
+    restart: unless-stopped
+    depends_on:
+      presidio-analyzer:
+        condition: service_healthy
+    environment:
+      VAULT_ADDR: "${VAULT_ADDR}"
+      VAULT_TOKEN: "${VAULT_TOKEN}"
+      MASKING_MASTER_SEED: "${MASKING_MASTER_SEED}"
+      PRESIDIO_ENDPOINT: "http://presidio-analyzer:5002"
+      PIPELINE_ARTIFACTS_DIR: "/artifacts"
+    volumes:
+      - pipeline-artifacts:/artifacts
+    expose:
+      - "8080"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+  # --------------------------------------------------------------------------
+  # Unstructured.io API — document parsing (PDF, DOCX, 65+ types)
+  # --------------------------------------------------------------------------
+  unstructured-api:
+    image: quay.io/unstructured-io/unstructured-api:latest
+    mem_limit: 1g
+    restart: unless-stopped
+    expose:
+      - "8000"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/healthcheck"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  # --------------------------------------------------------------------------
+  # Microsoft Presidio Analyzer — NER-based PII detection
+  # --------------------------------------------------------------------------
+  presidio-analyzer:
+    image: mcr.microsoft.com/presidio-analyzer:latest
+    mem_limit: 512m
+    restart: unless-stopped
+    expose:
+      - "5002"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5002/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+# ----------------------------------------------------------------------------
+# Network — internal only, no external port exposure
+# ----------------------------------------------------------------------------
+networks:
+  default:
+    name: conductor-data-pipeline
+
+# ----------------------------------------------------------------------------
+# Volumes
+# ----------------------------------------------------------------------------
+volumes:
+  airbyte-db-data:
+    driver: local
+  pipeline-artifacts:
+    driver: local

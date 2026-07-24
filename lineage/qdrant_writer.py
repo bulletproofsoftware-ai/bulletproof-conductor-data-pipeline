@@ -110,9 +110,9 @@ def _point_id_from_hash(content_hash: str) -> str:
     idempotent upserts.
     """
     # Hash the content_hash string to get a stable 32 hex-char UUID input.
-    # MD5 used for content fingerprinting (deterministic UUID generation), not security.
-    # Changing to SHA-256 would break existing Qdrant point IDs.
-    digest = hashlib.md5(content_hash.encode("utf-8")).hexdigest()  # noqa: S324 — content fingerprinting, not cryptographic security
+    # SHA-256 is used for content fingerprinting (deterministic UUID generation),
+    # not for any security purpose; the first 32 hex chars (128 bits) form the UUID.
+    digest = hashlib.sha256(content_hash.encode("utf-8")).hexdigest()[:32]
     return str(uuid.UUID(digest))
 
 

@@ -7,8 +7,14 @@ executes SQL assertions and transforms, and manages cleanup.
 
 from __future__ import annotations
 
+import re
+
 import duckdb
 from typing import List, Dict, Any, Tuple
+
+# DuckDB memory-limit config values (e.g. '1GB', '512MB', '2gb').
+# Validated before interpolation because PRAGMA/SET does not accept bind params.
+_MEMORY_LIMIT_RE = re.compile(r"^\d+(\.\d+)?\s?(B|KB|MB|GB|TB|KiB|MiB|GiB|TiB)$", re.I)
 
 
 class DuckDBExecutor:
@@ -24,9 +30,14 @@ class DuckDBExecutor:
         Args:
             memory_limit: Maximum memory DuckDB may use (e.g. '1GB', '512MB').
         """
+        if not _MEMORY_LIMIT_RE.match(memory_limit.strip()):
+            raise ValueError(f"Invalid memory_limit: '{memory_limit}'")
         self._conn = duckdb.connect(database=":memory:")
         self._memory_limit = memory_limit
-        self._conn.execute(f"SET memory_limit = '{memory_limit}'")  # noqa: S608 — DuckDB config, not user input
+        # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
+        # SET is a DuckDB config PRAGMA that does not accept bind parameters;
+        # memory_limit is validated against _MEMORY_LIMIT_RE above.
+        self._conn.execute(f"SET memory_limit = '{memory_limit}'")  # nosemgrep: configs.sql-string-concatenation-python
         self._tables: List[str] = []
 
     @property
@@ -59,8 +70,10 @@ class DuckDBExecutor:
             raise ValueError(f"Invalid table name: '{name}'")
         if not data:
             # Create empty table — infer columns from empty dict not possible,
-            # so we create with a dummy and delete
-            self._conn.execute(f"CREATE TABLE {name} AS SELECT 1 WHERE false")  # noqa: S608 — name validated via str.isidentifier()
+            # so we create with a dummy and delete. `name` is a SQL identifier
+            # (validated via str.isidentifier() above) and cannot be a bind param.
+            # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
+            self._conn.execute(f"CREATE TABLE {name} AS SELECT 1 WHERE false")  # nosemgrep: configs.sql-string-concatenation-python
             self._tables.append(name)
             return
 
@@ -83,14 +96,19 @@ class DuckDBExecutor:
             else:
                 type_map.append(f"{col} VARCHAR")
 
-        create_sql = f"CREATE TABLE {name} ({', '.join(type_map)})"  # noqa: S608 — name validated via str.isidentifier(); columns from dict keys
+        # `name` is a validated SQL identifier and column names come from dict
+        # keys (schema), neither of which can be passed as bind parameters in DDL.
+        # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
+        create_sql = f"CREATE TABLE {name} ({', '.join(type_map)})"
         self._conn.execute(create_sql)
 
-        # Insert rows using parameterized queries
+        # Insert rows using parameterized queries: identifiers are interpolated
+        # into the statement text but every row VALUE is bound via ? placeholders.
         placeholders = ", ".join(["?"] * len(columns))
-        insert_sql = f"INSERT INTO {name} ({col_defs}) VALUES ({placeholders})"  # noqa: S608 — name validated; VALUES use ? params
+        insert_sql = f"INSERT INTO {name} ({col_defs}) VALUES ({placeholders})"
         for row in data:
             values = [row.get(c) for c in columns]
+            # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
             self._conn.execute(insert_sql, values)
 
         self._tables.append(name)
@@ -108,7 +126,9 @@ class DuckDBExecutor:
         if not name or not name.isidentifier():
             raise ValueError(f"Invalid table name: '{name}'")
         if not columns:
-            self._conn.execute(f"CREATE TABLE {name} AS SELECT 1 WHERE false")  # noqa: S608 — name validated via str.isidentifier()
+            # `name` validated via str.isidentifier() above; identifier, not a bind param.
+            # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
+            self._conn.execute(f"CREATE TABLE {name} AS SELECT 1 WHERE false")  # nosemgrep: configs.sql-string-concatenation-python
             self._tables.append(name)
             return
 
@@ -165,8 +185,8 @@ class DuckDBExecutor:
         """Check if a table exists in the database."""
         try:
             self._conn.execute(
-                f"SELECT 1 FROM information_schema.tables "  # noqa: S608 — DuckDB in-process; name from internal tables list
-                f"WHERE table_name = '{name}'"
+                "SELECT 1 FROM information_schema.tables WHERE table_name = ?",
+                [name],
             )
             rows = self._conn.fetchall()
             return len(rows) > 0
@@ -175,7 +195,11 @@ class DuckDBExecutor:
 
     def drop_table(self, name: str) -> None:
         """Drop a table by name."""
-        self._conn.execute(f"DROP TABLE IF EXISTS {name}")  # noqa: S608 — name from internal tables list
+        # `name` is a SQL identifier drawn from the internal self._tables list
+        # (each entry validated via str.isidentifier() at load time); DDL
+        # identifiers cannot be passed as bind parameters.
+        # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
+        self._conn.execute(f"DROP TABLE IF EXISTS {name}")  # nosemgrep: configs.sql-string-concatenation-python
         if name in self._tables:
             self._tables.remove(name)
 

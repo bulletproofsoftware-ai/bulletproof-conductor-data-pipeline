@@ -18,7 +18,11 @@ PROJECT_ROOT = os.path.join(os.path.dirname(__file__), "..")
 COMPOSE_PATH = os.path.join(PROJECT_ROOT, "docker-compose.data-pipeline.yml")
 ENV_EXAMPLE_PATH = os.path.join(PROJECT_ROOT, ".env.example")
 GITIGNORE_PATH = os.path.join(PROJECT_ROOT, ".gitignore")
-DOCKERFILE_PATH = os.path.join(PROJECT_ROOT, "masking-engine", "Dockerfile")
+# The compose SERVICE is named "masking-engine" (hyphen), but its build context
+# is the "masking_engine" Python package directory (underscore) — the package is
+# imported directly by gates/pii_validator.py and the test suite, so the
+# directory name cannot be hyphenated.
+DOCKERFILE_PATH = os.path.join(PROJECT_ROOT, "masking_engine", "Dockerfile")
 HEALTHCHECK_SCRIPT = os.path.join(PROJECT_ROOT, "scripts", "healthcheck.sh")
 SETUP_SCRIPT = os.path.join(PROJECT_ROOT, "scripts", "setup.sh")
 
@@ -108,7 +112,8 @@ class TestServiceDefinitions:
         if isinstance(build, dict):
             assert "context" in build
         else:
-            assert build == "./masking-engine"
+            # Underscore: the build context is the importable Python package.
+            assert build == "./masking_engine"
 
     def test_unstructured_api_image(self, services):
         image = services["unstructured-api"]["image"]

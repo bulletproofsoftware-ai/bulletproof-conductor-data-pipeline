@@ -15,7 +15,13 @@ htmlcov/
 
 # Environment
 .env
+# .env.example IS tracked — it is the template users copy to .env.
+!.env.example
 .DS_Store
+
+# Secrets — never commit
+*.secret
+/run/secrets/
 
 # Conductor runtime
 conductor-state.json

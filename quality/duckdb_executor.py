@@ -80,6 +80,13 @@ class DuckDBExecutor:
         # DuckDB 1.x replacement scans require pandas/pyarrow, so we
         # use explicit SQL to stay dependency-light.
         columns = list(data[0].keys())
+        # Column names are interpolated into CREATE TABLE / INSERT below and
+        # cannot be bind parameters, so they must be validated the same way
+        # the table name already is. Without this, a column key sourced from
+        # profiled data or a user-supplied schema could carry arbitrary SQL.
+        for col in columns:
+            if not isinstance(col, str) or not col.isidentifier():
+                raise ValueError(f"Invalid column name: {col!r}")
         col_defs = ", ".join(columns)
 
         # Infer column types from first row for CREATE TABLE

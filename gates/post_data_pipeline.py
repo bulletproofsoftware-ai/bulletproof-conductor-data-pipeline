@@ -21,7 +21,7 @@ import time
 from dataclasses import dataclass, field
 from typing import Any, Optional
 
-from gates.pii_validator import PIIValidator, PIIScanResult
+from gates.pii_validator import PIIValidator, PIIScanResult, PiiScanUnavailable
 from gates.gate_registry import GateRegistry
 
 logger = logging.getLogger(__name__)
@@ -342,11 +342,22 @@ class PostDataPipelineGate:
                 detail="No masking strategy map provided",
             )
 
-        scan_result: PIIScanResult = self._pii_validator.validate(
-            masked_dataset=context.masked_dataset,
-            classifications=context.classifications,
-            strategy_map=context.strategy_map,
-        )
+        try:
+            scan_result: PIIScanResult = self._pii_validator.validate(
+                masked_dataset=context.masked_dataset,
+                classifications=context.classifications,
+                strategy_map=context.strategy_map,
+            )
+        except PiiScanUnavailable as exc:
+            # The scanner could not produce a trustworthy answer. Fail the
+            # check: an unverifiable dataset must not pass a PII gate just
+            # because the analyser was unavailable.
+            return CheckResult(
+                check_name=CHECK_3_MASKING,
+                passed=False,
+                detail=f"PII validation could not run: {exc}",
+                metadata={"scanner_available": False},
+            )
 
         if not scan_result.passed:
             violation_details = [

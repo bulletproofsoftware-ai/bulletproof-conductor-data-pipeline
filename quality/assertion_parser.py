@@ -97,6 +97,57 @@ def _check_injection(text: str) -> None:
             )
 
 
+# Statements that must never appear in a custom ASSERT. An assertion is a
+# read-only question about the data; anything that writes, drops, attaches or
+# reaches the filesystem is out of scope by definition.
+_FORBIDDEN_IN_CUSTOM_SQL = [
+    re.compile(r"\b(DROP|DELETE|INSERT|UPDATE|ALTER|CREATE|TRUNCATE|REPLACE)\b", re.IGNORECASE),
+    re.compile(r"\b(ATTACH|DETACH|COPY|EXPORT|IMPORT|INSTALL|LOAD|PRAGMA|SET)\b", re.IGNORECASE),
+    re.compile(r"\b(read_csv|read_parquet|read_json)\w*\s*\(", re.IGNORECASE),
+    re.compile(r"--"),
+    re.compile(r"/\*"),
+]
+
+
+def _validate_custom_sql(sql: str) -> None:
+    """Validate a custom ASSERT body: one read-only SELECT, nothing else.
+
+    ASSERT necessarily accepts free-form SQL — that is its purpose — so it
+    cannot use the identifier allow-list the other assertion types rely on.
+    Previously it received no validation at all and was handed to DuckDB
+    verbatim, which made it a direct execution primitive for anyone who could
+    author a quality rule.
+
+    The constraints below keep the feature usable while removing that:
+      * exactly one statement (no stacked `;` payloads),
+      * it must start with SELECT or WITH,
+      * no DDL/DML, no ATTACH/COPY/INSTALL/LOAD/PRAGMA, no file-reading
+        table functions, no comment sequences used to smuggle the above.
+    """
+    stripped = sql.strip()
+    if not stripped:
+        raise AssertionParseError("ASSERT requires a SQL statement")
+
+    # Reject stacked statements. A single trailing semicolon is fine.
+    body = stripped.rstrip(";").strip()
+    if ";" in body:
+        raise AssertionParseError(
+            "ASSERT must contain exactly one statement; ';' is not allowed"
+        )
+
+    if not re.match(r"^(SELECT|WITH)\b", body, re.IGNORECASE):
+        raise AssertionParseError(
+            "ASSERT must be a read-only query beginning with SELECT or WITH"
+        )
+
+    for pattern in _FORBIDDEN_IN_CUSTOM_SQL:
+        m = pattern.search(body)
+        if m:
+            raise AssertionParseError(
+                f"ASSERT may not contain '{m.group(0)}' — assertions are read-only"
+            )
+
+
 def _validate_number(value: str) -> str:
     """Validate and return a numeric string."""
     value = value.strip()
@@ -150,8 +201,7 @@ def parse_assertion(assertion_text: str) -> ParsedAssertion:
     assert_match = re.match(r"^ASSERT\s+(.+)$", text, re.IGNORECASE | re.DOTALL)
     if assert_match:
         custom_sql = assert_match.group(1).strip()
-        if not custom_sql:
-            raise AssertionParseError("ASSERT requires a SQL statement")
+        _validate_custom_sql(custom_sql)
         return ParsedAssertion(
             assertion_type=AssertionType.CUSTOM_ASSERT,
             original_text=text,

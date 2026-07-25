@@ -23,6 +23,14 @@ from masking_engine.app.ner.presidio_client import BasePresidioClient, Recognize
 
 logger = logging.getLogger(__name__)
 
+
+class PiiScanUnavailable(RuntimeError):
+    """The PII analyser could not produce a trustworthy result.
+
+    Raised instead of returning "no entities found", so a scanner outage
+    fails the gate rather than silently approving unmasked data.
+    """
+
 # Token format patterns for different masking strategies
 TOKEN_PATTERNS = [
     re.compile(r"^[A-Z]+_[a-zA-Z0-9]+$"),   # NAME_abc123, TOKEN_xyz
@@ -298,15 +306,25 @@ class PIIValidator:
         )
 
     def _analyze_value(self, value: str) -> list[RecognizedEntity]:
-        """Run Presidio analysis on a single value, filtering by threshold."""
+        """Run Presidio analysis on a single value, filtering by threshold.
+
+        Raises PiiScanUnavailable if the analyser fails.
+
+        This used to swallow the exception and return [], which callers read
+        as "no PII found" — so a Presidio outage silently turned this gate
+        into a rubber stamp and let unmasked data through. A PII gate that
+        cannot scan must stop the pipeline, not approve it.
+        """
         if not value or not value.strip():
             return []
         try:
             entities = self._client.analyze(value)
-            return [e for e in entities if e.score >= self._confidence_threshold]
         except Exception as exc:
             logger.error("Presidio analysis failed for value: %s", exc)
-            return []
+            raise PiiScanUnavailable(
+                f"PII analysis failed and the result cannot be trusted: {exc}"
+            ) from exc
+        return [e for e in entities if e.score >= self._confidence_threshold]
 
     @staticmethod
     def _is_valid_redacted(value: Any) -> bool:

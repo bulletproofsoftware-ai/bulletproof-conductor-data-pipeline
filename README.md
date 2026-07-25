@@ -46,8 +46,8 @@ Full documentation lives in [`docs/`](docs/): [overview](docs/OVERVIEW.md),
 
 ## Media
 
-A generated system-overview briefing is in [`media/`](media/)
-([briefing](media/system-overview.md)).
+Generated system-overview media is in [`media/`](media/)
+([briefing](media/system-overview.md) · [video](media/system-overview.mp4)).
 
 ## Schemas
 

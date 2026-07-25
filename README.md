@@ -2,6 +2,8 @@
 
 **A data pipeline with masking, anonymization, lineage, and human approval gates.**
 
+![bulletproof-conductor-data-pipeline — overview](docs/media/infographic.png)
+
 `bulletproof-conductor-data-pipeline` moves data through contract-validated pipelines
 while enforcing masking and anonymization policies, tracking lineage, and gating
 sensitive operations behind human approval. It includes a NER-based masking engine

@@ -3,6 +3,7 @@ Contract Validation Logic -- typed error returns for contract enforcement.
 
 Returns structured errors:
 - CONTRACT_REQUIRED: No contract exists for pipeline
+- CONTRACT_MISMATCH: Contract was signed for a different pipeline
 - CONTRACT_INCOMPLETE: Contract doesn't cover all requested columns
 - CONTRACT_TAMPERED: Hash mismatch (INTEGRITY_VIOLATION)
 - CONTRACT_EXPIRED: Contract version predates latest schema change (stale)
@@ -18,6 +19,7 @@ logger = logging.getLogger(__name__)
 
 # Error type constants
 CONTRACT_REQUIRED = "CONTRACT_REQUIRED"
+CONTRACT_MISMATCH = "CONTRACT_MISMATCH"
 CONTRACT_INCOMPLETE = "CONTRACT_INCOMPLETE"
 CONTRACT_TAMPERED = "CONTRACT_TAMPERED"
 CONTRACT_EXPIRED = "CONTRACT_EXPIRED"
@@ -62,8 +64,8 @@ class ContractValidator:
         pipeline: dict,
     ) -> ContractValidationResult:
         """
-        Verify that a contract exists and covers all columns in the
-        pipeline's extraction list.
+        Verify that a contract exists, was signed for this pipeline, and covers
+        all columns in the pipeline's extraction list.
 
         Args:
             contract: Data contract dict (or None if no contract exists).
@@ -83,7 +85,31 @@ class ContractValidator:
             ))
             return ContractValidationResult(valid=False, errors=errors)
 
-        # Check 2: Contract covers all requested columns
+        # Check 2: Contract must be bound to THIS pipeline. Column coverage alone
+        # is not authorization — two pipelines that read the same tables would
+        # otherwise accept each other's contracts, so a steward's sign-off for a
+        # staging pipeline could authorize extraction in a production one.
+        contract_pipeline_ref = contract.get("metadata", {}).get("pipeline_ref")
+        pipeline_id = pipeline.get("metadata", {}).get("id")
+
+        if not contract_pipeline_ref or not pipeline_id or contract_pipeline_ref != pipeline_id:
+            errors.append(ContractValidationError(
+                error_code=CONTRACT_MISMATCH,
+                message=(
+                    "Contract is not bound to this pipeline: "
+                    f"contract.metadata.pipeline_ref={contract_pipeline_ref!r}, "
+                    f"pipeline.metadata.id={pipeline_id!r}."
+                ),
+                details={
+                    "contract_pipeline_ref": contract_pipeline_ref,
+                    "pipeline_id": pipeline_id,
+                },
+            ))
+            # Binding fails closed — column coverage of the wrong pipeline is
+            # not information worth reporting.
+            return ContractValidationResult(valid=False, errors=errors)
+
+        # Check 3: Contract covers all requested columns
         contract_columns = set(contract.get("columns", {}).keys())
         source = pipeline.get("source", {})
         tables = source.get("extraction", {}).get("tables", [])

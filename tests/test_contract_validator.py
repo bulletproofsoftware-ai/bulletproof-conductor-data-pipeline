@@ -16,6 +16,7 @@ from datetime import datetime, timezone, timedelta
 from contracts.contract_validator import (
     ContractValidator,
     CONTRACT_REQUIRED,
+    CONTRACT_MISMATCH,
     CONTRACT_INCOMPLETE,
     CONTRACT_TAMPERED,
     CONTRACT_EXPIRED,
@@ -301,3 +302,94 @@ class TestContractExpired:
         result = validator.validate_freshness(contract, reference_time=now)
         assert result.valid is False
         assert result.errors[0].error_code == CONTRACT_EXPIRED
+
+
+# ---------------------------------------------------------------------------
+# CONTRACT_MISMATCH Tests (round-2 adversarial review)
+# ---------------------------------------------------------------------------
+
+class TestContractMismatch:
+    """A contract signed for another pipeline must not authorize this one.
+
+    Column coverage alone was the whole check, so any contract whose column
+    names happened to overlap authorized extraction — a staging steward's
+    sign-off could green-light a production pipeline.
+    """
+
+    def test_contract_for_another_pipeline_is_rejected(self, validator):
+        contract = _make_contract()
+        contract["metadata"]["pipeline_ref"] = "pipe-999-staging"
+
+        result = validator.validate_against_pipeline(
+            contract=contract,
+            pipeline=_make_pipeline(),  # metadata.id == "pipe-001"
+        )
+        assert result.valid is False
+        assert len(result.errors) == 1
+        assert result.errors[0].error_code == CONTRACT_MISMATCH
+        assert result.errors[0].details["contract_pipeline_ref"] == "pipe-999-staging"
+        assert result.errors[0].details["pipeline_id"] == "pipe-001"
+
+    def test_full_column_coverage_does_not_rescue_a_mismatched_contract(self, validator):
+        """The mismatched contract covers every column the pipeline reads —
+        exactly the case the old coverage-only check waved through."""
+        contract = _make_contract()
+        contract["metadata"]["pipeline_ref"] = "pipe-002"
+        pipeline = _make_pipeline()
+
+        contract_columns = set(contract["columns"].keys())
+        pipeline_columns = {
+            f"{t['name']}.{c}"
+            for t in pipeline["source"]["extraction"]["tables"]
+            for c in t["columns"]
+        }
+        assert pipeline_columns <= contract_columns, "precondition: coverage is complete"
+
+        result = validator.validate_against_pipeline(contract=contract, pipeline=pipeline)
+        assert result.valid is False
+        assert result.errors[0].error_code == CONTRACT_MISMATCH
+
+    def test_contract_without_pipeline_ref_is_rejected(self, validator):
+        contract = _make_contract()
+        del contract["metadata"]["pipeline_ref"]
+
+        result = validator.validate_against_pipeline(
+            contract=contract,
+            pipeline=_make_pipeline(),
+        )
+        assert result.valid is False
+        assert result.errors[0].error_code == CONTRACT_MISMATCH
+
+    def test_pipeline_without_id_is_rejected(self, validator):
+        pipeline = _make_pipeline()
+        del pipeline["metadata"]["id"]
+
+        result = validator.validate_against_pipeline(
+            contract=_make_contract(),
+            pipeline=pipeline,
+        )
+        assert result.valid is False
+        assert result.errors[0].error_code == CONTRACT_MISMATCH
+
+    def test_empty_pipeline_ref_does_not_match_empty_pipeline_id(self, validator):
+        """Two empty strings are equal — they must still not authorize anything."""
+        contract = _make_contract()
+        contract["metadata"]["pipeline_ref"] = ""
+        pipeline = _make_pipeline()
+        pipeline["metadata"]["id"] = ""
+
+        result = validator.validate_against_pipeline(contract=contract, pipeline=pipeline)
+        assert result.valid is False
+        assert result.errors[0].error_code == CONTRACT_MISMATCH
+
+    def test_matching_pipeline_ref_still_reaches_the_coverage_check(self, validator):
+        """The binding check must not shadow CONTRACT_INCOMPLETE."""
+        contract = _make_contract()
+        del contract["columns"]["orders.amount"]
+
+        result = validator.validate_against_pipeline(
+            contract=contract,
+            pipeline=_make_pipeline(),
+        )
+        assert result.valid is False
+        assert result.errors[0].error_code == CONTRACT_INCOMPLETE
